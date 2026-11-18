@@ -307,10 +307,11 @@ struct Alsa {
   std::vector<std::int16_t> stereo;
 
   bool Open(const char* dev) {
-    // Auto / explicit device selection. The CP0 codec (ES8389, card 1) is normally held by
-    // pipewire, so plughw:1,0 (direct, needs pipewire stopped) or pulse (needs libasound2-plugins)
-    // trade off. Try a sensible chain; fall back so the app still runs muted if none opens.
-    const char* chain[] = {dev && *dev ? dev : "plughw:1,0", "hw:1,0", "default"};
+    // Prefer the pipewire ALSA PCM (pipewire-alsa) so the app rides the same PipeWire graph as the
+    // rest of the system: the system volume/mute actually affects it and we never have to stop
+    // pipewire (that stop/start used to lose the saved sink volume -> "stuck at 90"). Fall back to
+    // direct hardware (plughw/hw) on systems without pipewire-alsa, so the app always makes sound.
+    const char* chain[] = {dev && *dev ? dev : "pipewire", "default", "plughw:1,0", "hw:1,0"};
     for (const char* candidate : chain) {
       if (candidate[0] == '\0') continue;
       if (snd_pcm_open(&pcm, candidate, SND_PCM_STREAM_PLAYBACK, 0) < 0) { pcm = nullptr; continue; }
