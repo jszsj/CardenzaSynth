@@ -75,3 +75,39 @@ foreach(page_file IN LISTS cardenza_web_page_files)
 endforeach()
 add_custom_target(CardenzaWebPage ALL DEPENDS ${cardenza_web_page_outputs})
 add_dependencies(CardenzaWeb CardenzaWebPage)
+
+# ── CP0 device shell (Cardenza on CardputerZero) ─────────────────────────────────────────────
+# Renders the official CP0 body art (630x405) with the engine frame composited into its 320x170
+# screen, using SDL2 like the CardputerZero Template's DesktopSimulatorFrame. Built WITHOUT a
+# custom --shell-file so the page is the default Emscripten shell (logo + console + spinner),
+# the same nature as the mahjong page. Reuses the proven CardenzaSim web device + CardenzaSystem.
+set(CARDENZA_CP0SITE_DIR ${CMAKE_BINARY_DIR}/cp0site CACHE PATH "Output dir of the CP0 shell page")
+
+add_executable(CP0Shell
+    ${CMAKE_CURRENT_SOURCE_DIR}/CP0ShellMain.cpp
+)
+target_include_directories(CP0Shell PRIVATE
+    ${PROJECT_SOURCE_DIR}
+)
+target_link_libraries(CP0Shell PRIVATE
+    CardenzaWebDevice
+    CardenzaSystem
+)
+set_target_properties(CP0Shell PROPERTIES
+    OUTPUT_NAME index
+    SUFFIX ".html"
+    RUNTIME_OUTPUT_DIRECTORY ${CARDENZA_CP0SITE_DIR}
+)
+target_compile_options(CP0Shell PRIVATE
+    -sUSE_SDL=2
+    -sUSE_LIBPNG=1
+)
+target_link_options(CP0Shell PRIVATE
+    -sUSE_SDL=2
+    -sUSE_LIBPNG=1
+    "--preload-file" "${CMAKE_CURRENT_SOURCE_DIR}/web/cp0-light.png@/cp0-shell-light.png"
+    -sALLOW_MEMORY_GROWTH=1
+    -sINITIAL_MEMORY=67108864
+    -sSTACK_SIZE=1048576
+    -sFORCE_FILESYSTEM=1
+)

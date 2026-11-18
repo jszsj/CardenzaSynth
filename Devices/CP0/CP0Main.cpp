@@ -48,92 +48,132 @@ namespace {
 volatile std::sig_atomic_t g_running = 1;
 void OnSignal(int) { g_running = 0; }
 
-// TAB-toggled sequencer-grid layer: when true, keys 7/8/9/0 (device cols c6..c9) map onto the
-// 9/0/-/= matrix columns (9..12) instead of the pad columns.
-bool g_gridLayer = false;
-
 constexpr int kPresentW = 320;
 constexpr int kPresentH = 170;
 constexpr int kFramePeriodMs = 16;
 constexpr std::uint64_t kClockBlock = 256;
 
-// ---- Linux evdev key code -> CP0 physical grid -> Cardenza 4x14 matrix ----
-// The CP0 keyboard is an 11-column x 4-row QWERTY grid (device cols c0..c10, top row numbers
-// 1..0 + DEL). It is mapped POSITIONALLY so it lines up with the original Cardenza matrix (as
-// drawn by CP0ShellMain / DesktopVirtualKeypad):
-//   c0      -> matrix col 0  (left function column: ESC / TAB / FN / CTRL)
-//   c1..c8  -> matrix col 1..8  (pads, the "numbers 1-8" columns)
-//   c10     -> matrix col 13 (right function column: ADD / SUB / ENTER / PLAY)
-//   c9      -> unused on the base layer (the "0" column)
-// From top to bottom each column maps to matrix rows 0..3. A TAB-toggled grid layer remaps
-// c6..c9 (keys 7,8,9,0) onto matrix cols 9..12 (the 9/0/-/= 4x4 sequencer grid).
-bool LinKeyToMatrix(std::uint16_t code, bool gridLayer, int& row, int& col, bool& isHome) {
+// ---- Linux evdev key code -> Cardenza 4x14 matrix (position mapping) ----
+// The CP0 keyboard is 11 physical columns x 4 rows. This maps each PHYSICAL column to the
+// Cardenza matrix column the user asked for (the leftmost column 1/sym/shift/fn is ignored):
+//   physical col 2  (2 / Q / A / ctrl)      -> matrix col 0  (ESC / TAB / FN / CTRL)
+//   physical col 3..10 (3/W/S/alt .. 0/O/L/M) -> matrix col 1..8 (pads)
+//   physical col 11 (DEL / P / OK / space)   -> matrix col 13 (ADD / SUB / ENTER / PLAY)
+// sym/fn are DRIVER layer keys: pressing them makes the SAME physical key emit the keymap1 /
+// keymap2 code. So we also map those layer codes: under the sym layer (keymap1) physical cols
+// 7..10 become the 9/0/-/= sequencer grid (matrix cols 9..12); the fn layer (keymap2) and every
+// other sym code behave like the base layer, so pressing sym/fn never leaves the keyboard dead.
+// TAB is no longer a layer toggle (the grid lives on the sym layer).
+bool LinKeyToMatrix(std::uint16_t code, bool /*gridLayer*/, int& row, int& col, bool& isHome) {
   isHome = false;
-  if (code == KEY_ESC || code == KEY_GRAVE) { row = 0; col = 0; return true; }
+  if (code == KEY_ESC)  { row = 0; col = 0; return true; }   // separate ESC -> ESC role (Poll: long-hold exits)
+  if (code == KEY_TAB)  { row = 1; col = 0; return true; }   // separate TAB -> TAB role
   if (code == KEY_HOME) { isHome = true; row = 0; col = 0; return true; }
-  if (code == KEY_TAB) return false;  // handled as the grid-layer toggle in Poll()
-
-  int dr = -1, dc = -1;
   switch (code) {
-    // Row 0 (top): 1 2 3 4 5 6 7 8 9 0 DEL
-    case KEY_1: dr = 0; dc = 0; break;
-    case KEY_2: dr = 0; dc = 1; break;
-    case KEY_3: dr = 0; dc = 2; break;
-    case KEY_4: dr = 0; dc = 3; break;
-    case KEY_5: dr = 0; dc = 4; break;
-    case KEY_6: dr = 0; dc = 5; break;
-    case KEY_7: dr = 0; dc = 6; break;
-    case KEY_8: dr = 0; dc = 7; break;
-    case KEY_9: dr = 0; dc = 8; break;
-    case KEY_0: dr = 0; dc = 9; break;
-    case KEY_BACKSPACE: case KEY_DELETE: dr = 0; dc = 10; break;
-    // Row 1: sym Q W E R T Y U I O P   (sym = custom 383)
-    case 383: dr = 1; dc = 0; break;
-    case KEY_Q: dr = 1; dc = 1; break;
-    case KEY_W: dr = 1; dc = 2; break;
-    case KEY_E: dr = 1; dc = 3; break;
-    case KEY_R: dr = 1; dc = 4; break;
-    case KEY_T: dr = 1; dc = 5; break;
-    case KEY_Y: dr = 1; dc = 6; break;
-    case KEY_U: dr = 1; dc = 7; break;
-    case KEY_I: dr = 1; dc = 8; break;
-    case KEY_O: dr = 1; dc = 9; break;
-    case KEY_P: dr = 1; dc = 10; break;
-    // Row 2: shift A S D F G H J K L OK   (shift = 42)
-    case KEY_LEFTSHIFT: case KEY_RIGHTSHIFT: case KEY_CAPSLOCK: dr = 2; dc = 0; break;
-    case KEY_A: dr = 2; dc = 1; break;
-    case KEY_S: dr = 2; dc = 2; break;
-    case KEY_D: dr = 2; dc = 3; break;
-    case KEY_F: dr = 2; dc = 4; break;
-    case KEY_G: dr = 2; dc = 5; break;
-    case KEY_H: dr = 2; dc = 6; break;
-    case KEY_J: dr = 2; dc = 7; break;
-    case KEY_K: dr = 2; dc = 8; break;
-    case KEY_L: dr = 2; dc = 9; break;
-    case KEY_ENTER: case KEY_KPENTER: dr = 2; dc = 10; break;
-    // Row 3 (bottom): fn ctrl alt Z X C V B N M space   (fn = custom 389)
-    case 389: dr = 3; dc = 0; break;
-    case KEY_LEFTCTRL: case KEY_RIGHTCTRL: dr = 3; dc = 1; break;
-    case KEY_LEFTALT: case KEY_RIGHTALT: dr = 3; dc = 2; break;
-    case KEY_Z: dr = 3; dc = 3; break;
-    case KEY_X: dr = 3; dc = 4; break;
-    case KEY_C: dr = 3; dc = 5; break;
-    case KEY_V: dr = 3; dc = 6; break;
-    case KEY_B: dr = 3; dc = 7; break;
-    case KEY_N: dr = 3; dc = 8; break;
-    case KEY_M: dr = 3; dc = 9; break;
-    case KEY_SPACE: dr = 3; dc = 10; break;
+    case 3: row = 0; col = 0; return true;
+    case 4: row = 0; col = 1; return true;
+    case 5: row = 0; col = 2; return true;
+    case 6: row = 0; col = 3; return true;
+    case 7: row = 0; col = 4; return true;
+    case 8: row = 0; col = 5; return true;
+    case 9: row = 0; col = 6; return true;
+    case 10: row = 0; col = 7; return true;
+    case 11: row = 0; col = 8; return true;
+    case 14: row = 0; col = 13; return true;
+    case 16: row = 1; col = 0; return true;
+    case 17: row = 1; col = 1; return true;
+    case 18: row = 1; col = 2; return true;
+    case 19: row = 1; col = 3; return true;
+    case 20: row = 1; col = 4; return true;
+    case 21: row = 1; col = 5; return true;
+    case 22: row = 1; col = 6; return true;
+    case 23: row = 1; col = 7; return true;
+    case 24: row = 1; col = 8; return true;
+    case 25: row = 1; col = 13; return true;
+    case 27: row = 0; col = 0; return true;
+    case 28: row = 2; col = 13; return true;
+    case 29: row = 3; col = 0; return true;
+    case 30: row = 2; col = 0; return true;
+    case 31: row = 2; col = 1; return true;
+    case 32: row = 2; col = 2; return true;
+    case 33: row = 2; col = 3; return true;
+    case 34: row = 2; col = 4; return true;
+    case 35: row = 2; col = 5; return true;
+    case 36: row = 2; col = 6; return true;
+    case 37: row = 2; col = 7; return true;
+    case 38: row = 2; col = 8; return true;
+    case 39: row = 0; col = 1; return true;
+    case 40: row = 0; col = 2; return true;
+    case 41: row = 0; col = 3; return true;
+    case 43: row = 0; col = 4; return true;
+    case 44: row = 3; col = 2; return true;
+    case 45: row = 3; col = 3; return true;
+    case 46: row = 3; col = 4; return true;
+    case 47: row = 3; col = 5; return true;
+    case 48: row = 3; col = 6; return true;
+    case 49: row = 3; col = 7; return true;
+    case 50: row = 3; col = 8; return true;
+    case 51: row = 0; col = 9; return true;
+    case 52: row = 0; col = 10; return true;
+    case 53: row = 0; col = 11; return true;
+    case 55: row = 1; col = 0; return true;
+    case 56: row = 3; col = 1; return true;
+    case 57: row = 3; col = 13; return true;
+    case 60: row = 0; col = 0; return true;
+    case 61: row = 0; col = 1; return true;
+    case 62: row = 0; col = 2; return true;
+    case 63: row = 0; col = 3; return true;
+    case 64: row = 0; col = 4; return true;
+    case 65: row = 0; col = 5; return true;
+    case 66: row = 0; col = 6; return true;
+    case 67: row = 0; col = 7; return true;
+    case 68: row = 0; col = 8; return true;
+    case 69: row = 1; col = 1; return true;
+    case 70: row = 1; col = 2; return true;
+    case 71: row = 1; col = 3; return true;
+    case 72: row = 1; col = 4; return true;
+    case 73: row = 1; col = 9; return true;
+    case 74: row = 1; col = 10; return true;
+    case 75: row = 1; col = 11; return true;
+    case 76: row = 1; col = 12; return true;
+    case 77: row = 1; col = 13; return true;
+    case 79: row = 2; col = 0; return true;
+    case 80: row = 2; col = 1; return true;
+    case 81: row = 2; col = 2; return true;
+    case 82: row = 2; col = 4; return true;
+    case 83: row = 2; col = 9; return true;
+    case 85: row = 2; col = 10; return true;
+    case 86: row = 2; col = 11; return true;
+    case 87: row = 1; col = 8; return true;
+    case 88: row = 1; col = 13; return true;
+    case 89: row = 2; col = 12; return true;
+    case 90: row = 3; col = 9; return true;
+    case 91: row = 3; col = 10; return true;
+    case 92: row = 3; col = 11; return true;
+    case 93: row = 3; col = 12; return true;
+    case 94: row = 0; col = 12; return true;
+    case 99: row = 2; col = 6; return true;
+    case 102: row = 2; col = 7; return true;
+    case 103: row = 2; col = 3; return true;
+    case 104: row = 2; col = 8; return true;
+    case 105: row = 3; col = 2; return true;
+    case 106: row = 3; col = 4; return true;
+    case 107: row = 3; col = 7; return true;
+    case 108: row = 3; col = 3; return true;
+    case 109: row = 3; col = 8; return true;
+    case 110: row = 3; col = 6; return true;
+    case 111: row = 0; col = 13; return true;
+    case 113: row = 2; col = 0; return true;
+    case 114: row = 2; col = 1; return true;
+    case 115: row = 2; col = 2; return true;
+    case 138: row = 2; col = 5; return true;
+    case 163: row = 1; col = 2; return true;
+    case 164: row = 1; col = 0; return true;
+    case 165: row = 1; col = 1; return true;
+    case 224: row = 1; col = 6; return true;
+    case 225: row = 1; col = 7; return true;
     default: return false;
   }
-
-  row = dr;
-  if (dc == 0) { col = 0; return true; }    // left function column
-  if (dc == 10) { col = 13; return true; }  // right function column
-  if (dc <= 5) { col = dc; return true; }   // 1..5 -> same matrix column
-  // dc 6..9 (keys 7,8,9,0)
-  if (gridLayer) { col = dc + 3; return true; }  // grid cols 9,10,11,12
-  if (dc == 9) return false;                      // "0" column unused on the base layer
-  col = dc; return true;                          // pad cols 6,7,8
 }
 
 // ---- Framebuffer ----
@@ -241,12 +281,8 @@ struct Keyboard {
         if (ev.value == 1) { escDown = std::chrono::steady_clock::now(); escHeld = true; }
         else if (ev.value == 0) { escHeld = false; }
       }
-      if (ev.code == KEY_TAB) {                  // TAB = toggle the grid layer
-        if (ev.value == 1) g_gridLayer = !g_gridLayer;
-        continue;
-      }
       int row = 0, col = 0; bool home = false;
-      if (!LinKeyToMatrix(ev.code, g_gridLayer, row, col, home)) continue;
+      if (!LinKeyToMatrix(ev.code, false, row, col, home)) continue;
       if (home) {
         CP0::Input::SetHomeButton(ev.value != 0);
       } else {

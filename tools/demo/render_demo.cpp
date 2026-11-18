@@ -72,7 +72,7 @@ Song Read(const std::string& path)
     {
       int track, pattern, step, pitch, velocity, length, micro;
       input >> track >> pattern >> step >> pitch >> velocity >> length >> micro;
-      auto& notes = p.sequence->tracks.at(track).patterns[pattern].steps.at(step).notes;
+      auto& notes = p.sequence->tracks.at(track).patterns[pattern].steps.Edit(step).notes;
       auto slot = std::find_if(notes.begin(), notes.end(), [](const auto& n) { return !n.active; });
       Require(slot != notes.end(), "Pattern exceeds eight notes per step");
       *slot = {static_cast<std::uint8_t>(pitch), static_cast<std::uint8_t>(velocity),
