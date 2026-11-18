@@ -152,6 +152,8 @@ struct Framebuffer {
 struct Keyboard {
   int fd = -1;
   bool ok = false;
+  bool escHeld = false;
+  std::chrono::steady_clock::time_point escDown{};
 
   static bool NameLooksKeyboard(int fd) {
     char name[256] = {0};
@@ -192,6 +194,10 @@ struct Keyboard {
       const ssize_t n = ::read(fd, &ev, sizeof(ev));
       if (n != static_cast<ssize_t>(sizeof(ev))) break;
       if (ev.type != EV_KEY) continue;
+      if (ev.code == KEY_ESC) {
+        if (ev.value == 1) { escDown = std::chrono::steady_clock::now(); escHeld = true; }
+        else if (ev.value == 0) { escHeld = false; }
+      }
       int row = 0, col = 0; bool home = false;
       if (!LinKeyToMatrix(ev.code, row, col, home)) continue;
       if (home) {
@@ -199,6 +205,11 @@ struct Keyboard {
       } else {
         CP0::Input::SetMatrixKey(static_cast<std::size_t>(row), static_cast<std::size_t>(col), ev.value != 0);
       }
+    }
+    // Hold ESC ~1.2 s to quit back to the launcher (no touch screen on the CP0).
+    if (escHeld && std::chrono::steady_clock::now() - escDown >
+                       std::chrono::milliseconds(1200)) {
+      g_running = false;
     }
   }
 };
@@ -216,20 +227,20 @@ struct Alsa {
     // Auto / explicit device selection. The CP0 codec (ES8389, card 1) is normally held by
     // pipewire, so plughw:1,0 (direct, needs pipewire stopped) or pulse (needs libasound2-plugins)
     // trade off. Try a sensible chain; fall back so the app still runs muted if none opens.
-    const char* chain[] = {dev && *dev ? dev : "plughw:1,0", "pulse", "default", "hw:1,0"};
+    const char* chain[] = {dev && *dev ? dev : "plughw:1,0", "hw:1,0", "default"};
     for (const char* candidate : chain) {
       if (candidate[0] == '\0') continue;
       if (snd_pcm_open(&pcm, candidate, SND_PCM_STREAM_PLAYBACK, 0) < 0) { pcm = nullptr; continue; }
-      snd_pcm_hw_params_t* hw = nullptr;
-      snd_pcm_hw_params_alloca(&hw);
-      snd_pcm_hw_params_any(pcm, hw);
       unsigned rate = synth::audio::kSampleRate;
-      if (snd_pcm_hw_params_set_access(pcm, hw, SND_PCM_ACCESS_RW_INTERLEAVED) == 0 &&
-          snd_pcm_hw_params_set_format(pcm, hw, SND_PCM_FORMAT_S16_LE) == 0 &&
-          snd_pcm_hw_params_set_channels(pcm, hw, 2) == 0 &&
-          snd_pcm_hw_params_set_rate_near(pcm, hw, &rate, nullptr) >= 0 &&
-          snd_pcm_hw_params(pcm, hw) == 0) {
-        std::printf("CP0Main: ALSA %s %u Hz stereo\n", candidate, rate);
+      // Cap the buffer at ~40 ms. plughw's default buffer is huge, which caused multi-second
+      // key-to-sound lag; soft_resample lets plughw convert 44.1k S16 to the ES8389's native rate.
+      if (snd_pcm_set_params(pcm, SND_PCM_FORMAT_S16_LE, SND_PCM_ACCESS_RW_INTERLEAVED, 2, rate, 1, 40000) == 0) {
+        snd_pcm_prepare(pcm);
+        snd_pcm_uframes_t bufsz = 0, persz = 0;
+        snd_pcm_get_params(pcm, &bufsz, &persz);
+        const unsigned ms = (unsigned)((std::uint64_t)bufsz * 1000ULL / (rate ? rate : 44100));
+        std::printf("CP0Main: ALSA %s %u Hz stereo buffer=%lu (~%ums)\n",
+                    candidate, rate, (unsigned long)bufsz, ms);
         ok = true;
         return true;
       }
@@ -252,7 +263,7 @@ struct Alsa {
   }
 
   void Run() {
-    static const std::size_t kChunk = 512;  // ~11.6 ms @ 44.1k
+    static const std::size_t kChunk = 256;  // ~5.8 ms @ 44.1k — keep well under the ~40 ms buffer
     mono.assign(kChunk, 0);
     stereo.assign(kChunk * 2, 0);
     while (g_running) {
@@ -332,14 +343,32 @@ int RunSelfCheck(int frames, const char* ppmPath, const char* wavPath) {
   return 0;
 }
 
+// --bench S: render S seconds of audio and report how fast vs realtime (does the CPU keep up?).
+int RunBench(double seconds) {
+  if (!os::system::Begin()) { std::fprintf(stderr, "CP0Main: boot failed\n"); return 1; }
+  const std::size_t chunk = 256;
+  std::vector<std::int16_t> buf(chunk, 0);
+  for (int i = 0; i < 64; ++i) synth::audio::RenderFrames(buf.data(), chunk);  // warm up
+  const std::size_t frames = (std::size_t)(seconds * (double)synth::audio::kSampleRate);
+  std::size_t done = 0;
+  const auto t0 = std::chrono::steady_clock::now();
+  while (done < frames) { synth::audio::RenderFrames(buf.data(), chunk); done += chunk; }
+  const double wall = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+  const double audio = (double)done / (double)synth::audio::kSampleRate;
+  std::printf("CP0Main[bench]: rendered %.2fs audio in %.3fs wall -> %.2fx realtime (%.0f%% of one core)\n",
+              audio, wall, wall > 0 ? audio / wall : 0.0, wall > 0 ? 100.0 * wall / audio : 0.0);
+  return 0;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
-  std::string selfcheckFrames, ppmPath, wavPath, fbPath = "/dev/fb0", evPath, alsaDev = "default";
+  std::string selfcheckFrames, ppmPath, wavPath, fbPath = "/dev/fb0", evPath, alsaDev = "default", benchSeconds;
   for (int i = 1; i < argc; ++i) {
     const std::string a = argv[i];
     auto next = [&](std::string& out) { if (i + 1 < argc) out = argv[++i]; };
     if (a == "--selfcheck") next(selfcheckFrames);
+    else if (a == "--bench") next(benchSeconds);
     else if (a == "--ppm") next(ppmPath);
     else if (a == "--wav") next(wavPath);
     else if (a == "--fb") next(fbPath);
@@ -354,6 +383,9 @@ int main(int argc, char** argv) {
 
   if (!selfcheckFrames.empty()) {
     return RunSelfCheck(std::atoi(selfcheckFrames.c_str()), ppmPath.c_str(), wavPath.c_str());
+  }
+  if (!benchSeconds.empty()) {
+    return RunBench(std::atof(benchSeconds.c_str()));
   }
 
   std::signal(SIGINT, OnSignal);
