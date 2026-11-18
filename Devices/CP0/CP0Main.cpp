@@ -48,48 +48,92 @@ namespace {
 volatile std::sig_atomic_t g_running = 1;
 void OnSignal(int) { g_running = 0; }
 
+// TAB-toggled sequencer-grid layer: when true, keys 7/8/9/0 (device cols c6..c9) map onto the
+// 9/0/-/= matrix columns (9..12) instead of the pad columns.
+bool g_gridLayer = false;
+
 constexpr int kPresentW = 320;
 constexpr int kPresentH = 170;
 constexpr int kFramePeriodMs = 16;
 constexpr std::uint64_t kClockBlock = 256;
 
-// ---- Linux key code (evdev) -> Cardenza 4x14 matrix (mirrors CP0ShellMain::MapScancode) ----
-bool LinKeyToMatrix(std::uint16_t code, int& row, int& col, bool& isHome) {
+// ---- Linux evdev key code -> CP0 physical grid -> Cardenza 4x14 matrix ----
+// The CP0 keyboard is an 11-column x 4-row QWERTY grid (device cols c0..c10, top row numbers
+// 1..0 + DEL). It is mapped POSITIONALLY so it lines up with the original Cardenza matrix (as
+// drawn by CP0ShellMain / DesktopVirtualKeypad):
+//   c0      -> matrix col 0  (left function column: ESC / TAB / FN / CTRL)
+//   c1..c8  -> matrix col 1..8  (pads, the "numbers 1-8" columns)
+//   c10     -> matrix col 13 (right function column: ADD / SUB / ENTER / PLAY)
+//   c9      -> unused on the base layer (the "0" column)
+// From top to bottom each column maps to matrix rows 0..3. A TAB-toggled grid layer remaps
+// c6..c9 (keys 7,8,9,0) onto matrix cols 9..12 (the 9/0/-/= 4x4 sequencer grid).
+bool LinKeyToMatrix(std::uint16_t code, bool gridLayer, int& row, int& col, bool& isHome) {
   isHome = false;
+  if (code == KEY_ESC || code == KEY_GRAVE) { row = 0; col = 0; return true; }
+  if (code == KEY_HOME) { isHome = true; row = 0; col = 0; return true; }
+  if (code == KEY_TAB) return false;  // handled as the grid-layer toggle in Poll()
+
+  int dr = -1, dc = -1;
   switch (code) {
-    case KEY_ESC: case KEY_GRAVE: row = 0; col = 0; return true;
-    case KEY_1: case KEY_2: case KEY_3: case KEY_4: case KEY_5:
-    case KEY_6: case KEY_7: case KEY_8: case KEY_9: case KEY_0:
-      row = 0; col = 1 + (code - KEY_1); return true;
-    case KEY_MINUS: row = 0; col = 11; return true;
-    case KEY_EQUAL: row = 0; col = 12; return true;
-    case KEY_BACKSPACE: case KEY_DELETE: row = 0; col = 13; return true;
-    case KEY_TAB: row = 1; col = 0; return true;
-    case KEY_Q: case KEY_W: case KEY_E: case KEY_R: case KEY_T: case KEY_Y:
-    case KEY_U: case KEY_I: case KEY_O: case KEY_P:
-      row = 1; col = 1 + (code - KEY_Q); return true;
-    case KEY_LEFTBRACE: row = 1; col = 11; return true;
-    case KEY_RIGHTBRACE: row = 1; col = 12; return true;
-    case KEY_BACKSLASH: row = 1; col = 13; return true;
-    case KEY_A: case KEY_S: case KEY_D: case KEY_F: case KEY_G: case KEY_H:
-    case KEY_J: case KEY_K: case KEY_L:
-      row = 2; col = 2 + (code - KEY_A); return true;
-    case KEY_SEMICOLON: row = 2; col = 11; return true;
-    case KEY_APOSTROPHE: row = 2; col = 12; return true;
-    case KEY_ENTER: case KEY_KPENTER: row = 2; col = 13; return true;
-    case KEY_LEFTCTRL: case KEY_RIGHTCTRL: row = 3; col = 0; return true;
-    case KEY_Z: case KEY_X: case KEY_C: case KEY_V: case KEY_B: case KEY_N: case KEY_M:
-      row = 3; col = 3 + (code - KEY_Z); return true;
-    case KEY_COMMA: row = 3; col = 10; return true;
-    case KEY_DOT: row = 3; col = 11; return true;
-    case KEY_SLASH: row = 3; col = 12; return true;
-    case KEY_SPACE: row = 3; col = 13; return true;
-    case KEY_HOME: isHome = true; row = 0; col = 0; return true;
-    // CP0 hardware FN (389) and SYM (383) buttons -> the app's FN cell (row 2, col 0). Both open the
-    // FN yellow-keycap overlay; the app needs them HELD, not tapped.
-    case 389: case 383: row = 2; col = 0; return true;
+    // Row 0 (top): 1 2 3 4 5 6 7 8 9 0 DEL
+    case KEY_1: dr = 0; dc = 0; break;
+    case KEY_2: dr = 0; dc = 1; break;
+    case KEY_3: dr = 0; dc = 2; break;
+    case KEY_4: dr = 0; dc = 3; break;
+    case KEY_5: dr = 0; dc = 4; break;
+    case KEY_6: dr = 0; dc = 5; break;
+    case KEY_7: dr = 0; dc = 6; break;
+    case KEY_8: dr = 0; dc = 7; break;
+    case KEY_9: dr = 0; dc = 8; break;
+    case KEY_0: dr = 0; dc = 9; break;
+    case KEY_BACKSPACE: case KEY_DELETE: dr = 0; dc = 10; break;
+    // Row 1: sym Q W E R T Y U I O P   (sym = custom 383)
+    case 383: dr = 1; dc = 0; break;
+    case KEY_Q: dr = 1; dc = 1; break;
+    case KEY_W: dr = 1; dc = 2; break;
+    case KEY_E: dr = 1; dc = 3; break;
+    case KEY_R: dr = 1; dc = 4; break;
+    case KEY_T: dr = 1; dc = 5; break;
+    case KEY_Y: dr = 1; dc = 6; break;
+    case KEY_U: dr = 1; dc = 7; break;
+    case KEY_I: dr = 1; dc = 8; break;
+    case KEY_O: dr = 1; dc = 9; break;
+    case KEY_P: dr = 1; dc = 10; break;
+    // Row 2: shift A S D F G H J K L OK   (shift = 42)
+    case KEY_LEFTSHIFT: case KEY_RIGHTSHIFT: case KEY_CAPSLOCK: dr = 2; dc = 0; break;
+    case KEY_A: dr = 2; dc = 1; break;
+    case KEY_S: dr = 2; dc = 2; break;
+    case KEY_D: dr = 2; dc = 3; break;
+    case KEY_F: dr = 2; dc = 4; break;
+    case KEY_G: dr = 2; dc = 5; break;
+    case KEY_H: dr = 2; dc = 6; break;
+    case KEY_J: dr = 2; dc = 7; break;
+    case KEY_K: dr = 2; dc = 8; break;
+    case KEY_L: dr = 2; dc = 9; break;
+    case KEY_ENTER: case KEY_KPENTER: dr = 2; dc = 10; break;
+    // Row 3 (bottom): fn ctrl alt Z X C V B N M space   (fn = custom 389)
+    case 389: dr = 3; dc = 0; break;
+    case KEY_LEFTCTRL: case KEY_RIGHTCTRL: dr = 3; dc = 1; break;
+    case KEY_LEFTALT: case KEY_RIGHTALT: dr = 3; dc = 2; break;
+    case KEY_Z: dr = 3; dc = 3; break;
+    case KEY_X: dr = 3; dc = 4; break;
+    case KEY_C: dr = 3; dc = 5; break;
+    case KEY_V: dr = 3; dc = 6; break;
+    case KEY_B: dr = 3; dc = 7; break;
+    case KEY_N: dr = 3; dc = 8; break;
+    case KEY_M: dr = 3; dc = 9; break;
+    case KEY_SPACE: dr = 3; dc = 10; break;
     default: return false;
   }
+
+  row = dr;
+  if (dc == 0) { col = 0; return true; }    // left function column
+  if (dc == 10) { col = 13; return true; }  // right function column
+  if (dc <= 5) { col = dc; return true; }   // 1..5 -> same matrix column
+  // dc 6..9 (keys 7,8,9,0)
+  if (gridLayer) { col = dc + 3; return true; }  // grid cols 9,10,11,12
+  if (dc == 9) return false;                      // "0" column unused on the base layer
+  col = dc; return true;                          // pad cols 6,7,8
 }
 
 // ---- Framebuffer ----
@@ -197,8 +241,12 @@ struct Keyboard {
         if (ev.value == 1) { escDown = std::chrono::steady_clock::now(); escHeld = true; }
         else if (ev.value == 0) { escHeld = false; }
       }
+      if (ev.code == KEY_TAB) {                  // TAB = toggle the grid layer
+        if (ev.value == 1) g_gridLayer = !g_gridLayer;
+        continue;
+      }
       int row = 0, col = 0; bool home = false;
-      if (!LinKeyToMatrix(ev.code, row, col, home)) continue;
+      if (!LinKeyToMatrix(ev.code, g_gridLayer, row, col, home)) continue;
       if (home) {
         CP0::Input::SetHomeButton(ev.value != 0);
       } else {
