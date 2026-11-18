@@ -80,8 +80,6 @@ bool LinKeyToMatrix(std::uint16_t code, int& row, int& col, bool& isHome) {
     case KEY_APOSTROPHE: row = 2; col = 12; return true;
     case KEY_ENTER: case KEY_KPENTER: row = 2; col = 13; return true;
     case KEY_LEFTCTRL: case KEY_RIGHTCTRL: row = 3; col = 0; return true;
-    case KEY_LEFTALT: row = 3; col = 1; return true;
-    case KEY_RIGHTALT: row = 3; col = 2; return true;
     case KEY_Z: case KEY_X: case KEY_C: case KEY_V: case KEY_B: case KEY_N: case KEY_M:
       row = 3; col = 3 + (code - KEY_Z); return true;
     case KEY_COMMA: row = 3; col = 10; return true;
@@ -89,6 +87,9 @@ bool LinKeyToMatrix(std::uint16_t code, int& row, int& col, bool& isHome) {
     case KEY_SLASH: row = 3; col = 12; return true;
     case KEY_SPACE: row = 3; col = 13; return true;
     case KEY_HOME: isHome = true; row = 0; col = 0; return true;
+    // CP0 hardware FN and SYM buttons (custom keycodes from the tca8418 linux,keymap) -> the app's
+    // FN cell (row 2, col 0). The app relies on FN for its menu / yellow keycap layer.
+    case 389: case 383: row = 2; col = 0; return true;
     default: return false;
   }
 }
