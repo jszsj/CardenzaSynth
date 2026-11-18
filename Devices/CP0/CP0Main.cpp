@@ -87,9 +87,9 @@ bool LinKeyToMatrix(std::uint16_t code, int& row, int& col, bool& isHome) {
     case KEY_SLASH: row = 3; col = 12; return true;
     case KEY_SPACE: row = 3; col = 13; return true;
     case KEY_HOME: isHome = true; row = 0; col = 0; return true;
-    // CP0 hardware FN and SYM buttons (custom keycodes from the tca8418 linux,keymap) -> the app's
-    // FN cell (row 2, col 0). The app relies on FN for its menu / yellow keycap layer.
-    case 389: case 383: row = 2; col = 0; return true;
+    // CP0 hardware FN (389) and SYM (113) buttons -> the app's FN cell (row 2, col 0). Both act as
+    // the FN modifier (the groovebox menu lives behind FN); the app also needs it HELD, not tapped.
+    case 389: case 113: row = 2; col = 0; return true;
     default: return false;
   }
 }
