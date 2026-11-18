@@ -85,9 +85,9 @@ bool LinKeyToMatrix(std::uint16_t code, int& row, int& col, bool& isHome) {
     case KEY_SLASH: row = 3; col = 12; return true;
     case KEY_SPACE: row = 3; col = 13; return true;
     case KEY_HOME: isHome = true; row = 0; col = 0; return true;
-    // CP0 hardware FN/SYM buttons -> the app's FN cell (row 2, col 0). Cover every custom code the
-    // tca8418 keyboard has been seen to emit for these buttons so either one opens the FN overlay.
-    case 389: case 383: case 113: row = 2; col = 0; return true;
+    // CP0 hardware FN (389) and SYM (383) buttons -> the app's FN cell (row 2, col 0). Both open the
+    // FN yellow-keycap overlay; the app needs them HELD, not tapped.
+    case 389: case 383: row = 2; col = 0; return true;
     default: return false;
   }
 }
@@ -193,10 +193,6 @@ struct Keyboard {
       const ssize_t n = ::read(fd, &ev, sizeof(ev));
       if (n != static_cast<ssize_t>(sizeof(ev))) break;
       if (ev.type != EV_KEY) continue;
-      if (ev.value == 1) {  // log real key-down codes so a still-dead key's true code is captured
-        FILE* lf = std::fopen("keylog.txt", "a");
-        if (lf) { std::fprintf(lf, "%d\n", ev.code); std::fclose(lf); }
-      }
       if (ev.code == KEY_ESC) {
         if (ev.value == 1) { escDown = std::chrono::steady_clock::now(); escHeld = true; }
         else if (ev.value == 0) { escHeld = false; }
