@@ -71,8 +71,6 @@ bool LinKeyToMatrix(std::uint16_t code, int& row, int& col, bool& isHome) {
     case KEY_LEFTBRACE: row = 1; col = 11; return true;
     case KEY_RIGHTBRACE: row = 1; col = 12; return true;
     case KEY_BACKSLASH: row = 1; col = 13; return true;
-    case KEY_CAPSLOCK: case KEY_LEFTSHIFT: row = 2; col = 0; return true;
-    case KEY_RIGHTSHIFT: row = 2; col = 1; return true;
     case KEY_A: case KEY_S: case KEY_D: case KEY_F: case KEY_G: case KEY_H:
     case KEY_J: case KEY_K: case KEY_L:
       row = 2; col = 2 + (code - KEY_A); return true;
