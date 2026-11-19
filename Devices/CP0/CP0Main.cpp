@@ -32,6 +32,7 @@
 #include <alsa/asoundlib.h>
 
 #include "Devices/CP0/Input.h"
+#include "Devices/CP0/UsbMidi.h"
 #include "Devices/Device.h"
 #include "Library/Synth/Audio/SynthAudioRuntime.h"
 #include "OS/System/System.h"
@@ -486,6 +487,7 @@ int main(int argc, char** argv) {
   std::printf("CP0Main: %s [%s] live\n", Device::Name().c_str(), Device::BackendName().c_str());
 
   if (alsa.ok) alsa.Start();
+  CP0::UsbMidi::Start();  // plug a USB-MIDI keyboard into the CP0 host port: it plays the synth
 
   auto next = std::chrono::steady_clock::now();
   while (g_running) {
@@ -498,6 +500,7 @@ int main(int argc, char** argv) {
     else next = now;
   }
   g_running = 0;
+  CP0::UsbMidi::Stop();
   if (alsa.ok) alsa.Stop();
   std::printf("CP0Main: exit\n");
   return 0;

@@ -825,8 +825,9 @@ void GrooveApp::SendComputerMidi(std::uint8_t status, std::size_t track, std::ui
   (void)Device::USB::WriteMidi(packet);
 }
 
-// A computer plays the device over USB: MIDI channels 1-4 are tracks 1-4, any other channel the current
-// track. Its notes are owned here (EndOrphanNotes) and end when it disconnects.
+// A computer plays the device over USB: MIDI channels 2-4 are tracks 2-4, and channel 1 (the default
+// of a plugged-in keyboard) plays whichever track is currently selected, so a single keyboard follows
+// the UI. Its notes are owned here (EndOrphanNotes) and end when it disconnects.
 void GrooveApp::ReadComputerMidi()
 {
   const bool connected = Device::USB::Connected();
@@ -837,7 +838,9 @@ void GrooveApp::ReadComputerMidi()
   {
     const std::uint8_t status = packet[1] & 0xF0;
     const std::uint8_t channel = packet[1] & 0x0F;
-    const std::size_t track = channel < synth::kSynthTrackCount ? channel : controller_.State().track;
+    const std::size_t track = (channel >= 1 && channel < synth::kSynthTrackCount)
+                                  ? channel
+                                  : controller_.State().track;
     const std::uint8_t data1 = packet[2] & 0x7F;
     const std::uint8_t data2 = packet[3] & 0x7F;
     auto& held = computerNotes_[track][data1 / 32];

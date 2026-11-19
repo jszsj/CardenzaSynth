@@ -44,6 +44,7 @@ if(NOT EMSCRIPTEN)
     find_library(ASOUND_LIB asound REQUIRED)
     add_executable(CP0Main
         ${PROJECT_SOURCE_DIR}/Devices/CP0/CP0Main.cpp
+        ${PROJECT_SOURCE_DIR}/Devices/CP0/UsbMidi.cpp
     )
     target_include_directories(CP0Main PRIVATE
         ${PROJECT_SOURCE_DIR}
