@@ -825,6 +825,26 @@ void GrooveApp::SendComputerMidi(std::uint8_t status, std::size_t track, std::ui
   (void)Device::USB::WriteMidi(packet);
 }
 
+namespace {
+// A drum track has no pitch: fold any keyboard note onto its eight pads following the WHITE keys in
+// UI order (BD SD CH OH CP TM CB MA), cycling every eight white keys from the keyboard's home base
+// (C3). A black key plays the drum of the white key to its left.
+std::uint8_t DrumNoteForMidi(std::uint8_t note) {
+  auto whiteOrdinalBelow = [](int m) {
+    static const int wpc[7] = {0, 2, 4, 5, 7, 9, 11};
+    const int oct = m / 12, pc = m % 12;
+    int countLE = 0;
+    for (int i = 0; i < 7; ++i)
+      if (wpc[i] <= pc) ++countLE;
+    return oct * 7 + (countLE - 1);  // 0-based index of the largest white key <= m, from MIDI 0
+  };
+  const int base = whiteOrdinalBelow(synth::kHomePerformanceBaseMidiNote);
+  int lane = (whiteOrdinalBelow(note) - base) % 8;
+  if (lane < 0) lane += 8;
+  return groove::kDrumNotes[static_cast<std::size_t>(lane)];
+}
+}  // namespace
+
 // A computer plays the device over USB: MIDI channels 2-4 are tracks 2-4, and channel 1 (the default
 // of a plugged-in keyboard) plays whichever track is currently selected, so a single keyboard follows
 // the UI. Its notes are owned here (EndOrphanNotes) and end when it disconnects.
@@ -843,18 +863,23 @@ void GrooveApp::ReadComputerMidi()
                                   : controller_.State().track;
     const std::uint8_t data1 = packet[2] & 0x7F;
     const std::uint8_t data2 = packet[3] & 0x7F;
+    // A drum track has no pitch: fold any keyboard note onto its eight pads (white keys walk the pads
+    // in order, black keys follow the white key to their left).
+    std::uint8_t playNote = data1;
+    if (EngineKind(track) == synth::SynthEngineKind::Drums)
+      playNote = DrumNoteForMidi(data1);
     auto& held = computerNotes_[track][data1 / 32];
     const std::uint32_t bit = 1u << (data1 % 32);
     if (status == 0x90 && data2 != 0)
     {
-      synth::audio::NoteOn(track, data1, data2);
-      if (track == controller_.State().track) controller_.MarkExternalPad(data1, data2, true);
+      synth::audio::NoteOn(track, playNote, data2);
+      if (track == controller_.State().track) controller_.MarkExternalPad(playNote, data2, true);
       held |= bit;
     }
     else if (status == 0x80 || status == 0x90)
     {
-      synth::audio::NoteOff(track, data1);
-      if (track == controller_.State().track) controller_.MarkExternalPad(data1, 0, false);
+      synth::audio::NoteOff(track, playNote);
+      if (track == controller_.State().track) controller_.MarkExternalPad(playNote, 0, false);
       held &= ~bit;
     }
     else if (status == 0xB0 && (data1 == 120 || data1 == 123))
@@ -878,8 +903,11 @@ void GrooveApp::ReleaseComputerNotes(std::size_t onlyTrack)
         if (computerNotes_[track][word] & (1u << bit))
         {
           const auto note = static_cast<std::uint8_t>(word * 32 + bit);
-          synth::audio::NoteOff(track, note);
-          if (track == controller_.State().track) controller_.MarkExternalPad(note, 0, false);
+          std::uint8_t play = note;
+          if (EngineKind(track) == synth::SynthEngineKind::Drums)
+            play = DrumNoteForMidi(note);
+          synth::audio::NoteOff(track, play);
+          if (track == controller_.State().track) controller_.MarkExternalPad(play, 0, false);
         }
     computerNotes_[track] = {};
   }

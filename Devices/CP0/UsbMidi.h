@@ -15,6 +15,11 @@ namespace UsbMidi {
 
 void Start();  // spawns the background reader thread (idempotent)
 void Stop();
+// Turns the CP0 panel back on if something dimmed it (backlight 0 / framebuffer blanked). The
+// system "screen off" timer only sees physical console input, so a keyboard played over USB never
+// wakes the panel — a MIDI message calls this so playing keeps the screen on. Cheap and idempotent:
+// it only writes when the panel is actually off.
+void WakePanel();
 
 }  // namespace UsbMidi
 }  // namespace CP0

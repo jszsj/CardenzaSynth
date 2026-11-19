@@ -488,6 +488,7 @@ int main(int argc, char** argv) {
 
   if (alsa.ok) alsa.Start();
   CP0::UsbMidi::Start();  // plug a USB-MIDI keyboard into the CP0 host port: it plays the synth
+  CP0::UsbMidi::WakePanel();  // turn the panel on: run standalone, nothing else enables the backlight
 
   auto next = std::chrono::steady_clock::now();
   while (g_running) {

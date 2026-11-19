@@ -44,6 +44,34 @@ int FindUsbMidiCard() {
   return usb;
 }
 
+// The panel backlight and framebuffer blank are the device's, not a userspace daemon's: the system
+// "screen off" timer only sees physical console input, so a keyboard played over USB never wakes the
+// panel. These keep the panel on while the keyboard is played (WakePanel is declared in the header).
+int ReadSysInt(const char* path) {
+  FILE* f = std::fopen(path, "r");
+  if (!f) return -1;
+  int v = -1;
+  if (std::fscanf(f, "%d", &v) != 1) v = -1;
+  std::fclose(f);
+  return v;
+}
+
+void WriteSysInt(const char* path, int value) {
+  FILE* f = std::fopen(path, "w");
+  if (!f) return;
+  std::fprintf(f, "%d\n", value);
+  std::fclose(f);
+}
+
+// Throttled so a fast run of notes opens sysfs at most twice a second.
+void PokeWake() {
+  static auto last = std::chrono::steady_clock::time_point{};
+  const auto now = std::chrono::steady_clock::now();
+  if (now - last < std::chrono::milliseconds(500)) return;
+  last = now;
+  WakePanel();
+}
+
 // Running-status MIDI 1.0 byte parser -> 4-byte USB-MIDI event packets fed to the firmware queue.
 struct Parser {
   std::uint8_t status = 0;
@@ -58,6 +86,7 @@ struct Parser {
     if (DebugOn() && (hi == 0x90 || hi == 0x80 || hi == 0xB0)) {
       std::fprintf(stderr, "[usbmidi] %02X %02X %02X\n", status, data[0], d2);
     }
+    PokeWake();  // a MIDI note is activity: wake the panel and keep it on while the keyboard plays
     CP0::Input::SendComputerMidi(packet);
   }
 
@@ -124,6 +153,15 @@ void Run() {
 }
 
 }  // namespace
+
+void WakePanel() {
+  // Un-blank the framebuffer if the system powered the panel down (root-only file: ignore failure).
+  if (ReadSysInt("/sys/class/graphics/fb0/blank") > 0) WriteSysInt("/sys/class/graphics/fb0/blank", 0);
+  // Backlight 0 means the panel is off: restore full brightness (pi is in the video group).
+  const int max = ReadSysInt("/sys/class/backlight/backlight/max_brightness");
+  if (max > 0 && ReadSysInt("/sys/class/backlight/backlight/brightness") == 0)
+    WriteSysInt("/sys/class/backlight/backlight/brightness", max);
+}
 
 void Start() {
   if (g_started.exchange(true)) return;
