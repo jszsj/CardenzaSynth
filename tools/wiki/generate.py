@@ -136,6 +136,74 @@ REDIRECT = """<!doctype html>
 """
 
 
+LAUNCHER_SHOTS = WIKI / "static" / "img" / "launcher"
+WEB_DIR = WIKI / "static" / "img" / "community"
+WEB_SHOTS = json.loads((WIKI / "src" / "guide" / "community-shots.json").read_text(encoding="utf-8"))["shots"]
+
+
+def wire_names():
+    """The line drawings launcher.tsx draws (its WIRES: "  name: (" lines in that block)."""
+    text = (ROOT / "wiki" / "src" / "guide" / "launcher.tsx").read_text(encoding="utf-8")
+    block = text[text.index("const WIRES"):text.index("export const WIRE_NAMES")]
+    return set(re.findall(r"^  (\w+): \(", block, re.M))
+
+
+def launcher_step(lesson_id, number, step):
+    """A step of a Launcher lesson (wiki/src/guide/launcher.tsx): its frames [screen, action, seconds].
+    Every screen is one the Launcher drew (tools/wiki/launcher/shots.py) in both languages (or in the one
+    named, "en:home-9"), "off", "shot:<groovebox screenshot>", "web:<community picture>"
+    (tools/wiki/launcher/community.mjs) or "wire:<line drawing>" (launcher.tsx WIRES); every key is one of the
+    board's (or HOME). An action is parts with a space: a key, hold:KEY, type:TEXT, cable:in / cable:out (the
+    USB cable, on a board step)."""
+    where = f"wiki: guide lesson {lesson_id} step {number}"
+    frames = step.get("frames")
+    if not frames:
+        sys.exit(f"{where}: a Launcher step needs its frames")
+    kind = lambda screen: "web" if screen.startswith("web:") else "wire" if screen.startswith("wire:") else "device"
+    if len({kind(frame[0]) for frame in frames}) > 1:
+        sys.exit(f"{where}: a step's frames are all of the device, all web or all wire")
+    for screen, action, seconds in frames:
+        if screen.startswith("shot:"):
+            pass  # checked when the page builds (the screenshot's URL)
+        elif screen.startswith("wire:"):
+            if screen[5:] not in wire_names():
+                sys.exit(f"{where}: no line drawing {screen} (wiki/src/guide/launcher.tsx WIRES)")
+        elif screen.startswith("web:"):
+            name = screen[4:]
+            for lang in ("zh", "en"):
+                if lang not in WEB_SHOTS.get(name, {}) or not (WEB_DIR / lang / f"{name}.png").exists():
+                    sys.exit(f"{where}: no community picture {lang}/{name}.png (tools/wiki/launcher/community.mjs)")
+        elif screen != "off":
+            fixed, _, name = screen.rpartition(":")  # "en:home-9": that language's screen only
+            for lang in (fixed,) if fixed else ("zh", "en"):
+                if not (LAUNCHER_SHOTS / lang / f"{name}.png").exists():
+                    sys.exit(f"{where}: no Launcher screen {lang}/{name}.png (tools/wiki/launcher/shots.py)")
+        if not isinstance(seconds, (int, float)) or seconds <= 0:
+            sys.exit(f"{where}: frame {screen} needs its seconds")
+        tokens = []
+        for part in (action or "").split():
+            what, _, rest = part.partition(":")
+            if what == "type":
+                tokens += list(rest)
+            elif what == "hold":
+                tokens.append(rest)
+            elif what == "cable":
+                if rest not in ("in", "out") or not step.get("board"):
+                    sys.exit(f"{where}: {part}: the cable is in or out, on a board step")
+            elif rest:
+                sys.exit(f"{where}: unknown action {action}")
+            else:
+                tokens.append(part)
+        for token in tokens + step.get("keys", []):
+            if token != "HOME":
+                lessons.key_indices(token)  # fails on a key the board does not have
+    out = {"say": step["say"], "frames": frames}
+    for field in ("keys", "board"):
+        if field in step:
+            out[field] = step[field]
+    return out
+
+
 def guide_data(guide, index):
     """docs/learn/guide.json as the wiki's guide pages read it: keys as KeyIndex values, demos parsed,
     each lesson's place in the course and its step pictures. The words keep the inline markup
@@ -163,6 +231,11 @@ def guide_data(guide, index):
             if "anim" in lesson:
                 entry["anim"] = lesson["anim"]
                 entry["steps"] = [{"say": step["say"]} for step in lesson["steps"]]
+                if lesson["anim"] == "launcher":
+                    entry["steps"] = [launcher_step(lesson_id, number, step)
+                                      for number, step in enumerate(lesson["steps"], start=1)]
+                    entry["thumb"] = lesson.get("thumb", "home-0")
+                    launcher_step(lesson_id, "thumb", {"frames": [[entry["thumb"], None, 1]], "say": {}})
             else:
                 entry["start"] = lesson["start"]
                 for step_number, step in enumerate(lesson["steps"], start=1):
@@ -180,6 +253,15 @@ def guide_data(guide, index):
                         "byLayout": step.get("byLayout", {}),
                     })
             out["lessons"][lesson_id] = entry
+    # A hidden part's Launcher lessons are checked all the same (their screens and keys).
+    for part in guide["parts"]:
+        if part.get("hidden"):
+            for lesson_id in part["lessons"]:
+                lesson = guide["lessons"][lesson_id]
+                if lesson.get("anim") == "launcher":
+                    for number, step in enumerate(lesson["steps"], start=1):
+                        launcher_step(lesson_id, number, step)
+                    launcher_step(lesson_id, "thumb", {"frames": [[lesson.get("thumb", "home-0"), None, 1]], "say": {}})
     return out
 
 

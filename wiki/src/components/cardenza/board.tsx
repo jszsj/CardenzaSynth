@@ -1,5 +1,5 @@
 // The device map: the board as it is (static/img/device/cardenza-pcb.svg, the PCB drawing: switches
-// KEY1..KEY56 row by row from the top left, their LEDs, the HOME side key key-FUNC, the display) with
+// KEY1..KEY56 row by row from the top left, their LEDs, the HOME side key key-HOME, the display) with
 // the firmware's own screen in its display, and over it a layer of hotspots: every key, the HOME key
 // and the screen's areas. Pointing at one (or focusing it) shows what it does, its FN combination
 // (from the firmware, CardenzaLearnDump) and its section; a click goes there. On a touch screen the
@@ -100,7 +100,8 @@ function spots(): Spot[] {
     }
   }
   out.push({id: 'home', rect: [HOME.x - 1, HOME.y - 1, HOME.w + 2, HOME.h + 2], kind: 'home', name: ['HOME 侧键', 'HOME side key'],
-    section: 'keys-home', lines: [['在 groovebox 里不用；要停下所有声音按 FN + ESC。', 'Unused by the groovebox; to stop everything, FN + ESC.']]});
+    section: 'keys-home', lines: [['按一下打开系统菜单（Cardenza Synth 0.2.1 起）：返回启动器、重新启动、关机、下载模式。', 'A press opens the system menu (Cardenza Synth 0.2.1 or newer): Back to Launcher, Restart, Turn off, Download mode.'],
+      ['插线时别按住它（那是下载模式）；停下所有声音是 FN + ESC。', "Don't hold it while plugging in (download mode). To stop everything: FN + ESC."]]});
   out.push({id: 'header', rect: screen(9, 0, 221, 11), kind: 'screen', name: ['状态行', 'Status line'], section: 'screen-layout',
     lines: [['场景、轨道、音色和 BPM。', 'Scene, track, sound and BPM.']]});
   out.push({id: 'content', rect: screen(9, 13, 222, 110), kind: 'screen', name: ['内容区', 'Content'], section: 'keys-grid',
