@@ -204,6 +204,36 @@ bool Controller::IsPadDown(std::size_t row, std::size_t column) const
   return state_.padNote[PadIndex(row, column)] != kNoNote;
 }
 
+// A note from outside (a USB keyboard) lights its pad exactly like a key press: same display fields
+// the renderer reads. It does NOT sound or record - the USB reader already played it through the
+// synth - and it never steals a cell a real key owns.
+void Controller::MarkExternalPad(int note, std::uint8_t velocity, bool down)
+{
+  if (note < 0 || note > 127) return;
+  for (std::size_t row = 0; row < kRows; ++row)
+    for (std::size_t column = kPadFirstColumn; column < kPadFirstColumn + kPadColumns; ++column)
+    {
+      int cellNote = 0;
+      if (!PadNoteFor(row, column, cellNote) || cellNote != note) continue;
+      const std::size_t index = PadIndex(row, column);
+      if (down)
+      {
+        if (state_.padNote[index] != kNoNote) continue;  // a real key already owns this cell
+        state_.padVelocity[index] = velocity;
+        state_.padNote[index] = static_cast<std::uint8_t>(note);
+        state_.padChord[index] = {};
+        state_.padChord[index][0] = static_cast<std::uint8_t>(note);
+        state_.padChordCount[index] = 1;
+        state_.padTrack[index] = static_cast<std::uint8_t>(state_.track);
+      }
+      else if (state_.padNote[index] == note)
+      {
+        state_.padNote[index] = kNoNote;
+        state_.padChordCount[index] = 0;
+      }
+    }
+}
+
 bool Controller::IsNoteHeld(int note) const
 {
   for (std::size_t index = 0; index < state_.padNote.size(); ++index)

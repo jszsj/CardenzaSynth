@@ -604,6 +604,9 @@ public:
   bool PadNoteFor(std::size_t row, std::size_t column, int& note) const;
   bool IsPadDown(std::size_t row, std::size_t column) const;
   bool IsNoteHeld(int note) const;
+  // Light a pad cell for a note played from OUTSIDE (USB MIDI): touches only the display fields
+  // (padNote/padChord/padTrack/padVelocity), never sounds or records - the caller already did.
+  void MarkExternalPad(int note, std::uint8_t velocity, bool down);
 
   // FN combinations besides the menu (ESC stop, TAB previous track, ...), for the menu's footer.
   struct FnEntry {

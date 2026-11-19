@@ -848,11 +848,13 @@ void GrooveApp::ReadComputerMidi()
     if (status == 0x90 && data2 != 0)
     {
       synth::audio::NoteOn(track, data1, data2);
+      if (track == controller_.State().track) controller_.MarkExternalPad(data1, data2, true);
       held |= bit;
     }
     else if (status == 0x80 || status == 0x90)
     {
       synth::audio::NoteOff(track, data1);
+      if (track == controller_.State().track) controller_.MarkExternalPad(data1, 0, false);
       held &= ~bit;
     }
     else if (status == 0xB0 && (data1 == 120 || data1 == 123))
@@ -873,7 +875,12 @@ void GrooveApp::ReleaseComputerNotes(std::size_t onlyTrack)
     if (onlyTrack < synth::kSynthTrackCount && track != onlyTrack) continue;
     for (std::size_t word = 0; word < computerNotes_[track].size(); ++word)
       for (std::size_t bit = 0; bit < 32; ++bit)
-        if (computerNotes_[track][word] & (1u << bit)) synth::audio::NoteOff(track, static_cast<std::uint8_t>(word * 32 + bit));
+        if (computerNotes_[track][word] & (1u << bit))
+        {
+          const auto note = static_cast<std::uint8_t>(word * 32 + bit);
+          synth::audio::NoteOff(track, note);
+          if (track == controller_.State().track) controller_.MarkExternalPad(note, 0, false);
+        }
     computerNotes_[track] = {};
   }
 }
