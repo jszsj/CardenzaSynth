@@ -5,11 +5,11 @@
   "version": "0.2.3",
   "store": {
     "summary": "Four-track groovebox: drum machine, JUNO/DX7 synths, sampler, sequencer and tape arrangement.",
-    "description": "Cardenza Synth is a self-contained four-track groovebox for the CardputerZero. Each track runs an 808-style drum machine, a JUNO or DX7 style synth voice, or a sampler, all driven by a step sequencer and arranged on a tape-style song view. A hands-on 320x170 interface keeps the drum pads, instrument pages, per-track steps and a colour-coded scene navigator one keystroke away.",
+    "description": "Cardenza Synth is a self-contained four-track groovebox for the CardputerZero. Each track runs an 808-style drum machine, a JUNO or DX7 style synth voice, or a sampler, all driven by a step sequencer and arranged on a tape-style song view. A hands-on 320x170 interface keeps the drum pads, instrument pages, per-track steps and a colour-coded scene navigator one keystroke away. The drum machine and synths are built in; the sampler plays your own audio — drop mono 16-bit 44.1 kHz WAV files into ~/.local/share/cardenza/sdcard/CardenzaSynth/Samples/ (user config lives in ~/.config/Cardenza/).",
     "locales": {
       "zh-CN": {
         "summary": "四轨 Groovebox 合成器：808 鼓机、JUNO/DX7 合成器、采样器、步进音序与磁带编曲。",
-        "description": "Cardenza Synth 是 CardputerZero 上的四轨 Groovebox。每条轨可跑 808 风格鼓机、JUNO 或 DX7 风格合成器音色，或采样器，由步进音序器驱动、在磁带式编曲视图里成曲。320×170 的双手界面一键切换鼓垫、乐器参数、逐轨步进和彩色场景导航。"
+        "description": "Cardenza Synth 是 CardputerZero 上的四轨 Groovebox。每条轨可跑 808 风格鼓机、JUNO 或 DX7 风格合成器音色，或采样器，由步进音序器驱动、在磁带式编曲视图里成曲。320×170 的双手界面一键切换鼓垫、乐器参数、逐轨步进和彩色场景导航。鼓机与合成器为内置；采样器播放你自己的音频——把 16-bit/44.1kHz 单声道 WAV 放进 ~/.local/share/cardenza/sdcard/CardenzaSynth/Samples/ 即可（配置存于 ~/.config/Cardenza/）。"
       }
     },
     "icon": "store/icon.png",
