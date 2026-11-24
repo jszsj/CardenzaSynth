@@ -136,6 +136,7 @@ endfunction()
 function(cardenza_collect_ui_cpp_sources root_dir out_var)
     set(sources
         ${root_dir}/OS/UI/BuiltInFonts.cpp
+        ${root_dir}/OS/UI/Terminus320Fonts.cpp
         ${root_dir}/OS/UI/Canvas.cpp
         ${root_dir}/OS/UI/UI.cpp
     )

@@ -15,6 +15,8 @@ inline constexpr std::uint8_t kDefaultScreenBacklight = 180;
 inline constexpr std::uint8_t kMinScreenBacklight = 10;
 // The log on the card (OS/System/Log.h) is on unless someone turns it off.
 inline constexpr bool kDefaultLogEnabled = true;
+// Sampler mic capture cleanup (high-pass + noise gate) preference; a device setting (sys.input_clean).
+inline constexpr bool kDefaultInputClean = true;
 
 // The screen's colors. DARK is light on black (the shipped screen), LIGHT the same colors as ink on
 // white paper, RETRO a backlit green LCD. Stored by name (`dark`, `light`, `retro`); anything else
@@ -43,6 +45,10 @@ std::uint8_t ScreenBacklight();
 // The console log written to the card (CardenzaSynth/Logs).
 void SetLogEnabled(bool enabled);
 bool LogEnabled();
+// Sampler mic capture cleanup (high-pass + noise gate) preference (sys.input_clean). Applied to the
+// audio capture at boot; the sampler record page toggles it.
+void SetInputCleanEnabled(bool enabled);
+bool InputCleanEnabled();
 // The screen theme. The app that draws applies it (only it knows its colors).
 void SetScreenTheme(Theme theme);
 Theme ScreenTheme();

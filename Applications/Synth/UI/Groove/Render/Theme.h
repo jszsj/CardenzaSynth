@@ -141,19 +141,35 @@ inline constexpr int kDitherFill = 6;
 inline constexpr int kDitherScrim = 10;
 inline constexpr int kDitherPanel = 2;
 
+#if defined(CARDENZA_NATIVE_320)
+inline constexpr int kScreenWidth = 320;
+inline constexpr int kScreenHeight = 170;
+inline constexpr int kStripWidth = 11;
+inline constexpr int kGlyphColumnX = 309;
+inline constexpr int kContentX = 13;
+inline constexpr int kContentRight = 305;
+inline constexpr int kHeaderY = 1;
+inline constexpr int kHeaderRuleY = 14;
+inline constexpr int kContentY = 18;
+inline constexpr int kContentBottom = 154;
+inline constexpr int kFooterY = 157;
+inline constexpr int kCellGap = 4;
+#else
 inline constexpr int kScreenWidth = 240;
 inline constexpr int kScreenHeight = 135;
 inline constexpr int kStripWidth = 8;
 inline constexpr int kGlyphColumnX = 232;
 inline constexpr int kContentX = 10;
 inline constexpr int kContentRight = 229;
-inline constexpr int kContentWidth = kContentRight - kContentX;
 inline constexpr int kHeaderY = 1;
 inline constexpr int kHeaderRuleY = 11;
 inline constexpr int kContentY = 14;
 inline constexpr int kContentBottom = 122;
-inline constexpr int kContentHeight = kContentBottom - kContentY;
 inline constexpr int kFooterY = 125;
+inline constexpr int kCellGap = 3;
+#endif
+inline constexpr int kContentWidth = kContentRight - kContentX;
+inline constexpr int kContentHeight = kContentBottom - kContentY;
 // Footer items and their highlight blocks (2 pixels around the text) stay 2 pixels clear of the
 // edge caps on both sides.
 inline constexpr int kFooterX = kContentX + 2;
@@ -161,7 +177,6 @@ inline constexpr int kFooterRight = kContentRight - 2;
 inline constexpr int kFooterWidth = kFooterRight - kFooterX;
 
 // The 4x4 cell grid mirrors the GRID keys (matrix columns 9..12).
-inline constexpr int kCellGap = 3;
 inline constexpr int kCellWidth = (kContentWidth - 3 * kCellGap) / 4;
 inline constexpr int kCellHeight = (kContentHeight - 3 * kCellGap) / 4;
 

@@ -19,6 +19,20 @@ constexpr std::array<std::array<std::uint8_t, 4>, 4> kBayer = {{
 
 const ui::RasterFont& FontAtlas(Font font)
 {
+#if defined(CARDENZA_NATIVE_320)
+  switch (font)
+  {
+    case Font::Micro:
+      return ui::Terminus320Font(0);
+    case Font::Small:
+      return ui::Terminus320Font(1);
+    case Font::Large:
+      return ui::Terminus320Font(2);
+    case Font::Huge:
+    default:
+      return ui::Terminus320Font(3);
+  }
+#else
   switch (font)
   {
     case Font::Micro:
@@ -31,6 +45,7 @@ const ui::RasterFont& FontAtlas(Font font)
     default:
       return ui::UiFontForScale(4);
   }
+#endif
 }
 
 const ui::RasterGlyph& GlyphFor(const ui::RasterFont& font, char value)
@@ -263,6 +278,16 @@ int Gfx::Advance(Font font)
 
 int Gfx::LineHeight(Font font)
 {
+#if defined(CARDENZA_NATIVE_320)
+  switch (font)
+  {
+    case Font::Micro: return 12;
+    case Font::Small: return 16;
+    case Font::Large: return 20;
+    case Font::Huge:
+    default: return 28;
+  }
+#else
   switch (font)
   {
     case Font::Micro: return 9;
@@ -271,6 +296,7 @@ int Gfx::LineHeight(Font font)
     case Font::Huge:
     default: return 24;
   }
+#endif
 }
 
 int Gfx::CapHeight(Font font)

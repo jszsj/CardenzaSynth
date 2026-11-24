@@ -3,6 +3,7 @@
 #include "Devices/Device.h"
 #include "Library/Synth/Audio/SynthAudioRuntime.h"
 #include "Library/Synth/Core/SynthStorage.h"
+#include "OS/Storage/DeviceSettings.h"
 #include "Applications/Synth/Runtime/Sampler/SamplerWav.h"
 
 #include <algorithm>
@@ -865,7 +866,19 @@ SamplerTrackUiState SamplerManager::BuildUiState(std::size_t trackIndex) const
   {
     return {};
   }
-  return tracks_[trackIndex].ui;
+  SamplerTrackUiState state = tracks_[trackIndex].ui;
+  state.noiseCleanup = Device::Audio::InputNoiseCleanup();
+  return state;
+}
+
+void SamplerManager::SetNoiseCleanup(bool enabled)
+{
+  os::storage::SetInputCleanEnabled(enabled);  // persists sys.input_clean and applies to Device::Audio
+}
+
+bool SamplerManager::NoiseCleanup() const
+{
+  return Device::Audio::InputNoiseCleanup();
 }
 
 bool SamplerManager::ConsumeTrimReset(std::size_t trackIndex)

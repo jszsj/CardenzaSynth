@@ -11,8 +11,18 @@ namespace Device {
 
 namespace Display {
 
-inline constexpr int kWidth = 240;
-inline constexpr int kHeight = 135;
+inline constexpr int kWidth =
+#if defined(CARDENZA_NATIVE_320)
+    320;
+#else
+    240;
+#endif
+inline constexpr int kHeight =
+#if defined(CARDENZA_NATIVE_320)
+    170;
+#else
+    135;
+#endif
 inline constexpr std::size_t kPixelCount = static_cast<std::size_t>(kWidth) * static_cast<std::size_t>(kHeight);
 
 using Pixel = std::uint16_t;
@@ -133,6 +143,13 @@ InputStatus ReadInputFrames(std::int16_t* destination,
                             std::size_t frameCount,
                             std::size_t& framesRead,
                             std::uint32_t timeoutMs = 0);
+
+// Input noise cleanup applied to the mic capture: a high-pass (removes DC offset and sub-~80 Hz
+// rumble) plus a light noise gate (attenuates the hiss floor during silence). On by default; the
+// sampler record page toggles it. Only the ALSA capture backend shapes the signal; elsewhere it is a
+// no-op so the shared UI still links.
+void SetInputNoiseCleanup(bool enabled);
+bool InputNoiseCleanup();
 
 // What a computer plays to the device over USB: interleaved stereo int16 frames at 44.1 kHz, its own
 // mute and volume already applied. Returns the frames given; 0 when nothing plays. In a block where

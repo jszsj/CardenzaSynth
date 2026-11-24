@@ -18,6 +18,11 @@ if(CARDENZA_GROOVE_UI)
   add_compile_definitions(CARDENZA_GROOVE_UI=1)
 endif()
 
+# CP0's panel is natively 320x170: render the groove UI at that size (integer pixels, no 240->320 upscale).
+if(DEVICE STREQUAL "CP0")
+  add_compile_definitions(CARDENZA_NATIVE_320=1)
+endif()
+
 include(${CMAKE_SOURCE_DIR}/cmake/CardenzaSynthSourceLists.cmake)
 
 add_custom_target(ValidateArchitecture

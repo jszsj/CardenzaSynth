@@ -569,7 +569,12 @@ void Controller::SampleRecordGrid(std::size_t index)
   if (modal == nullptr) return;
   if (!state.hasDraft)
   {
-    if (index == 0) SampleRecordEnter();
+    if (index == 0) { SampleRecordEnter(); return; }
+    if (index == 1 && !state.recording)
+    {
+      sampler.SetNoiseCleanup(!sampler.NoiseCleanup());
+      ShowToast(sampler.NoiseCleanup() ? "CLEAN ON" : "CLEAN OFF");
+    }
     return;
   }
   switch (index)

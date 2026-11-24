@@ -23,6 +23,7 @@ constexpr const char* kLedKey = "sys.led";
 constexpr const char* kScreenKey = "sys.screen";
 constexpr const char* kLogKey = "sys.log";
 constexpr const char* kThemeKey = "sys.theme";
+constexpr const char* kInputCleanKey = "sys.input_clean";
 constexpr std::array<const char*, kThemeCount> kThemeNames{{"dark", "light", "retro"}};
 
 struct Cache {
@@ -31,6 +32,7 @@ struct Cache {
   std::uint8_t led = kDefaultKeyLedBrightness;
   std::uint8_t screen = kDefaultScreenBacklight;
   bool log = kDefaultLogEnabled;
+  bool inputClean = kDefaultInputClean;
   Theme theme = kDefaultTheme;
 };
 
@@ -63,6 +65,7 @@ Cache& Values()
     cache.led = static_cast<std::uint8_t>(system.GetInt(kLedKey, kDefaultKeyLedBrightness, 0, Device::LED::kBrightnessMax));
     cache.screen = static_cast<std::uint8_t>(system.GetInt(kScreenKey, kDefaultScreenBacklight, kMinScreenBacklight, 255));
     cache.log = system.GetBool(kLogKey, kDefaultLogEnabled);
+    cache.inputClean = system.GetBool(kInputCleanKey, kDefaultInputClean);
     cache.theme = ReadTheme(system);
     cache.loaded = true;
   }
@@ -84,6 +87,7 @@ void ApplyDeviceSettings()
   ApplyVolume(cache.volume);
   Device::LED::SetGlobalBrightness(cache.led);
   Device::Display::SetBacklight(cache.screen);
+  Device::Audio::SetInputNoiseCleanup(cache.inputClean);
 }
 
 void SetOutputVolume(std::uint8_t percent)
@@ -134,6 +138,18 @@ void SetLogEnabled(bool enabled)
 bool LogEnabled()
 {
   return Values().log;
+}
+
+void SetInputCleanEnabled(bool enabled)
+{
+  Values().inputClean = enabled;
+  Device::Audio::SetInputNoiseCleanup(enabled);
+  SystemSettings().SetBool(kInputCleanKey, enabled);
+}
+
+bool InputCleanEnabled()
+{
+  return Values().inputClean;
 }
 
 void SetScreenTheme(Theme theme)

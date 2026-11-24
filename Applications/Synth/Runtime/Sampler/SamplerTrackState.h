@@ -41,6 +41,7 @@ struct SamplerTrackUiState {
   bool overwritePending = false;
   bool deleteConfirm = false;
   bool previewing = false;
+  bool noiseCleanup = true;  // HPF + noise gate on the mic capture (record-page toggle)
 };
 
 }  // namespace synth

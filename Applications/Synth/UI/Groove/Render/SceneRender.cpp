@@ -1259,8 +1259,10 @@ void SequenceScene(Gfx& g, const Controller& controller, Animator& animator, std
         const auto& summary = seq.tracks[row];
         const bool currentTrack = row == state.track;
         const Color ink = currentTrack ? kInk : kDim;
-        if (currentTrack) g.Fill(Rect{table.x - 2, y - 1, 15, 11}, TrackColor(row));
-        g.Text(table.x, y, "T" + std::to_string(row + 1), currentTrack ? kBlack : TrackColor(row), Font::Small);
+        const std::string tlabel = "T" + std::to_string(row + 1);
+        // Highlight chip sized to the label so "T2" is fully enclosed (was a fixed 15px that clipped the digit).
+        if (currentTrack) g.Fill(Rect{table.x - 2, y - 1, Gfx::Measure(tlabel, Font::Small) + 4, 11}, TrackColor(row));
+        g.Text(table.x, y, tlabel, currentTrack ? kBlack : TrackColor(row), Font::Small);
         g.Text(table.x + 22, y + 1, EngineShortName(host.EngineKind(row)), ink);
         char pattern[16];
         std::snprintf(pattern, sizeof(pattern), "P%02u/%02u", static_cast<unsigned>(summary.activePattern + 1), static_cast<unsigned>(summary.patternCount));

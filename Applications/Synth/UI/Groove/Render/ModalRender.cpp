@@ -218,13 +218,15 @@ void DrawSampleRecord(Gfx& g, const Controller& controller, Animator& animator)
     return;
   }
   Title(g, "RECORD SAMPLE  T" + std::to_string(state.track + 1), kTab);
-  g.Text(kContentX, kContentY + 22, "READY", kInk, Font::Large);
+  widgets::ActionCell(g, Cell(0, 0), "RECORD", state.gridDown[0], kRec);
+  widgets::ActionCell(g, Cell(0, 1), sampler.noiseCleanup ? "CLEAN ON" : "CLEAN OFF",
+                      state.gridDown[1], sampler.noiseCleanup ? kPlay : kFaint);
   char limit[24];
   std::snprintf(limit, sizeof(limit), "MIC  %uS MAX", static_cast<unsigned>(synth::SamplerManager::kMaxRecordSeconds));
-  g.Text(kContentX, kContentY + 44, limit, kDim);
-  g.Text(kContentX, kContentY + 62, "INPUT", kDim);
-  widgets::LevelBar(g, Rect{kContentX + 36, kContentY + 63, kContentWidth - 36, 5}, sampler.inputLevel, kPlay, kFaint);
-  if (sampler.phase == synth::SamplerTrackPhase::Error) g.TextFit(kContentX, kContentY + 78, kContentWidth, sampler.statusText, kRec);
+  g.Text(kContentX, kContentY + 40, limit, kDim);
+  g.Text(kContentX, kContentY + 58, "INPUT", kDim);
+  widgets::LevelBar(g, Rect{kContentX + 36, kContentY + 59, kContentWidth - 36, 5}, sampler.inputLevel, kPlay, kFaint);
+  if (sampler.phase == synth::SamplerTrackPhase::Error) g.TextFit(kContentX, kContentY + 74, kContentWidth, sampler.statusText, kRec);
 }
 
 // RECORD (hold OK in SEQ): the record settings on row 0, the captured takes on rows 1 and 2 (newest

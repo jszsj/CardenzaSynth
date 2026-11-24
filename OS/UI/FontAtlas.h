@@ -24,5 +24,7 @@ struct RasterFont {
 const RasterFont& UiFontForScale(int scale);
 // The 5x7 tracker glyphs at 1x: six-pixel advance for dense terminal text.
 const RasterFont& UiMicroFont();
+// Terminus (OFL) pixel atlases for the native 320x170 UI. tier 0..3 = Micro/Small/Large/Huge.
+const RasterFont& Terminus320Font(int tier);
 
 }  // namespace ui

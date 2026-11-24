@@ -38,6 +38,9 @@ public:
   void DiscardDraftTake(std::size_t trackIndex);
   void SetDraftTrimWindow(std::size_t trackIndex, int start127, int end127);
   void SetDraftLoopEnabled(std::size_t trackIndex, bool enabled);
+  // Mic capture cleanup (high-pass + noise gate), a global toggle surfaced on the record page.
+  void SetNoiseCleanup(bool enabled);
+  bool NoiseCleanup() const;
   void EnterDraftNaming(std::size_t trackIndex);
   // The first TAKE_nn that is free.
   std::string FreeTakeName() const;

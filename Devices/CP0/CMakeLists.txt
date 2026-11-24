@@ -41,18 +41,29 @@ target_link_libraries(CP0Shot PRIVATE
 # PCM to ALSA. Not built for the web (that path is Devices/CardenzaWeb).
 if(NOT EMSCRIPTEN)
     find_package(Threads REQUIRED)
+    # CP0 audio backend: miniaudio single-header -> libpulse0 (base image) -> pipewire-pulse -> ES8389.
+    # No pipewire-alsa (audio). libasound2 stays ONLY for USB-MIDI input via ALSA rawmidi (UsbMidi.cpp).
     find_library(ASOUND_LIB asound REQUIRED)
+    target_sources(CardenzaDeviceAudio PRIVATE
+        ${PROJECT_SOURCE_DIR}/Devices/CP0/third_party/miniaudio_impl.c
+    )
+    target_include_directories(CardenzaDeviceAudio PUBLIC
+        ${PROJECT_SOURCE_DIR}/Devices/CP0/third_party
+    )
+    target_link_libraries(CardenzaDeviceAudio PUBLIC ${CMAKE_DL_LIBS} Threads::Threads m)
     add_executable(CP0Main
         ${PROJECT_SOURCE_DIR}/Devices/CP0/CP0Main.cpp
         ${PROJECT_SOURCE_DIR}/Devices/CP0/UsbMidi.cpp
     )
     target_include_directories(CP0Main PRIVATE
         ${PROJECT_SOURCE_DIR}
+        ${PROJECT_SOURCE_DIR}/Devices/CP0/third_party
     )
     target_link_libraries(CP0Main PRIVATE
         CP0Device
         CardenzaSystem
         CardenzaApplications
+        CardenzaDeviceAudio
         Threads::Threads
         ${ASOUND_LIB}
     )
