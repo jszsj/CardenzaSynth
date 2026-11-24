@@ -1,6 +1,7 @@
 {
   "app_name": "Cardenza Synth",
   "package_name": "cardenza-zero",
+  "bin_name": "cardenza-zero",
   "version": "0.2.3",
   "store": {
     "summary": "Four-track groovebox: drum machine, JUNO/DX7 synths, sampler, sequencer and tape arrangement.",

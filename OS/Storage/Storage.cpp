@@ -3,6 +3,7 @@
 #include <atomic>
 #include <algorithm>
 #include <cstdio>
+#include <cstdlib>
 
 #if defined(ESP_PLATFORM)
 #include <cerrno>
@@ -27,6 +28,17 @@ constexpr std::string_view kAppsFolder = "Apps";
 constexpr std::string_view kLogsFolder = "Logs";
 constexpr std::size_t kMaxIdPart = 24;
 constexpr std::size_t kMaxFolderName = 32;
+
+// Store/XDG convention for the Linux host (CP0): user-visible configuration (Settings: system.cfg
+// and synth.cfg) lives at $XDG_CONFIG_HOME/Cardenza or $HOME/.config/Cardenza, not inside the card
+// tree. The bare-metal firmware has no HOME, so it keeps Settings/ on the card exactly as before.
+// Data (samples, projects, presets, session, logs) still lives under the card root.
+std::string ConfigHome()
+{
+  if (const char* xdg = std::getenv("XDG_CONFIG_HOME"); xdg != nullptr && *xdg != '\0') return std::string(xdg) + "/Cardenza";
+  if (const char* home = std::getenv("HOME"); home != nullptr && *home != '\0') return std::string(home) + "/.config/Cardenza";
+  return {};
+}
 
 bool IsIdCharacter(char c)
 {
@@ -79,6 +91,8 @@ std::string Root()
 
 std::string SystemDirectory()
 {
+  std::string configHome = ConfigHome();
+  if (!configHome.empty()) return configHome;
   return JoinPath(Root(), kSettingsFolder);
 }
 
@@ -133,7 +147,8 @@ std::string AppFolder::Root() const
 std::string AppFolder::SettingsPath() const
 {
   if (!Valid()) return {};
-  return JoinPath(JoinPath(Root(), kSettingsFolder), id_ == kPrimaryAppId ? "synth.cfg" : "app.cfg");
+  if (id_ == kPrimaryAppId) return JoinPath(SystemDirectory(), "synth.cfg");
+  return JoinPath(JoinPath(Root(), kSettingsFolder), "app.cfg");
 }
 
 std::string AppFolder::Projects() const
