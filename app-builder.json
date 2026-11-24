@@ -5,11 +5,11 @@
   "version": "0.2.3",
   "store": {
     "summary": "Four-track groovebox: drum machine, JUNO/DX7 synths, sampler, sequencer and tape arrangement.",
-    "description": "Cardenza Synth is a self-contained four-track groovebox for the CardputerZero. Each track runs an 808-style drum machine, a JUNO or DX7 style synth voice, or a sampler, all driven by a step sequencer and arranged on a tape-style song view. A hands-on 320x170 interface keeps the drum pads, instrument pages, per-track steps and a colour-coded scene navigator one keystroke away. The drum machine and synths are built in; the sampler plays your own audio — drop mono 16-bit 44.1 kHz WAV files into ~/.local/share/cardenza/sdcard/CardenzaSynth/Samples/ (user config lives in ~/.config/Cardenza/).",
+    "description": "Cardenza Synth is a portable four-track synthesizer workstation with four built-in sound engines — a drum machine, a Juno-style analog synth, a DX7-style FM synth, and a sampler — plus per-track sequencing, song arrangement, mixing, per-track and bus effects, and SD-card project storage.\n\nThis release is a CardputerZero port of the upstream CardenzaSynth project: it faithfully reproduces the original's four sound engines, per-track sequencing and song arrangement, with the interface and controls re-adapted to the CP0's 320x170 screen and 46-key keyboard. The drum machine and synths are built in; the sampler plays your own audio — drop mono 16-bit 44.1 kHz WAV files into ~/.local/share/cardenza/sdcard/CardenzaSynth/Samples/ (user config lives in ~/.config/Cardenza/).",
     "locales": {
       "zh-CN": {
         "summary": "四轨 Groovebox 合成器：808 鼓机、JUNO/DX7 合成器、采样器、步进音序与磁带编曲。",
-        "description": "Cardenza Synth 是 CardputerZero 上的四轨 Groovebox。每条轨可跑 808 风格鼓机、JUNO 或 DX7 风格合成器音色，或采样器，由步进音序器驱动、在磁带式编曲视图里成曲。320×170 的双手界面一键切换鼓垫、乐器参数、逐轨步进和彩色场景导航。鼓机与合成器为内置；采样器播放你自己的音频——把 16-bit/44.1kHz 单声道 WAV 放进 ~/.local/share/cardenza/sdcard/CardenzaSynth/Samples/ 即可（配置存于 ~/.config/Cardenza/）。"
+        "description": "鸣片（Cardenza Synth）是一台便携式四轨合成器工作站，内置四种音源引擎（808 鼓机、Juno 模拟合成器、DX7 FM 合成器、采样器），支持分轨音序器、歌曲编排、混音、轨道与总线效果器，以及 SD 卡工程存储。\n\n本版为 CardenzaSynth 上游项目的 CardputerZero 移植版：忠实还原原作的四种音源引擎、分轨音序与歌曲编排，并针对 CP0 的 320×170 屏幕与 46 键键盘重新适配界面与操作。鼓机与合成器为内置；采样器播放你自己的音频——把 16-bit/44.1kHz 单声道 WAV 放进 ~/.local/share/cardenza/sdcard/CardenzaSynth/Samples/ 即可（配置存于 ~/.config/Cardenza/）。"
       }
     },
     "icon": "store/icon.png",
